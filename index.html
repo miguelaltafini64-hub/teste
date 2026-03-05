@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simples Oval Racing</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="hud">
+            <div class="hud-item" id="lap-display">Volta: 1 / 5</div>
+            <div class="hud-item" id="pos-display">Posição: 1º</div>
+        </div>
+
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <div id="overlay">
+            <h1 id="overlay-title">Oval Racing</h1>
+            <p id="overlay-msg">Complete 5 voltas em primeiro lugar!</p>
+            <button id="start-btn" class="btn">Iniciar Corrida</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
