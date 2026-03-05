@@ -300,51 +300,99 @@ function drawFlag(x, y, country) {
 }
 
 function drawTrack() {
+    // Fundo (Grama com textura leve)
     ctx.fillStyle = '#1e3d1a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // --- Arquibancadas ao Redor ---
-    drawCrowd(200, 10, 600, 40); // Norte
-    drawCrowd(200, 750, 600, 40); // Sul
-    drawCrowd(10, 200, 40, 400, true); // Oeste
-    drawCrowd(950, 200, 40, 400, true); // Leste
+    // --- Arquibancadas ---
+    drawCrowd(200, 10, 600, 45); // Norte
+    drawCrowd(200, 745, 600, 45); // Sul
+    drawCrowd(10, 200, 45, 400, true); // Oeste
+    drawCrowd(945, 200, 45, 400, true); // Leste
 
-    // Bandeiras
+    // --- Bandeiras ---
     drawFlag(100, 100, 'BRA');
     drawFlag(900, 100, 'FRA');
     drawFlag(100, 700, 'ITA');
     drawFlag(900, 700, 'GER');
-    drawFlag(500, 50, 'JPN');
+    drawFlag(500, 40, 'JPN');
 
-    ctx.fillStyle = '#1e3d1a';
-    ctx.beginPath();
-    ctx.ellipse(CONFIG.trackCenterX, CONFIG.trackCenterY, CONFIG.innerRX, CONFIG.innerRY, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // --- Pista Oval Sofisticada ---
+
+    // 1. Kerbs Externos (Zebra Vermelha/Branca)
     ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 25;
+    ctx.beginPath();
+    ctx.ellipse(CONFIG.trackCenterX, CONFIG.trackCenterY, CONFIG.outerRX + 10, CONFIG.outerRY + 10, 0, 0, Math.PI * 2);
     ctx.stroke();
 
-    ctx.setLineDash([20, 30]);
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.setLineDash([30, 30]);
+    ctx.strokeStyle = '#e22';
+    ctx.beginPath();
+    ctx.ellipse(CONFIG.trackCenterX, CONFIG.trackCenterY, CONFIG.outerRX + 10, CONFIG.outerRY + 10, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 2. Asfalto (Gradiente Radial para profundidade)
+    const asphaltGrd = ctx.createRadialGradient(CONFIG.trackCenterX, CONFIG.trackCenterY, 150, CONFIG.trackCenterX, CONFIG.trackCenterY, 500);
+    asphaltGrd.addColorStop(0, "#3a3a3a");
+    asphaltGrd.addColorStop(1, "#1a1a1a");
+    ctx.fillStyle = asphaltGrd;
+    ctx.beginPath();
+    ctx.ellipse(CONFIG.trackCenterX, CONFIG.trackCenterY, CONFIG.outerRX, CONFIG.outerRY, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 3. Zebra Interna
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 15;
+    ctx.beginPath();
+    ctx.ellipse(CONFIG.trackCenterX, CONFIG.trackCenterY, CONFIG.innerRX - 5, CONFIG.innerRY - 5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.setLineDash([20, 20]);
+    ctx.strokeStyle = '#e22';
+    ctx.beginPath();
+    ctx.ellipse(CONFIG.trackCenterX, CONFIG.trackCenterY, CONFIG.innerRX - 5, CONFIG.innerRY - 5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 4. Grama Central (Ilha)
+    ctx.fillStyle = '#1e3d1a';
+    ctx.beginPath();
+    ctx.ellipse(CONFIG.trackCenterX, CONFIG.trackCenterY, CONFIG.innerRX - 12, CONFIG.innerRY - 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 5. Linhas de Faixa (Pontilhadas)
+    ctx.setLineDash([15, 40]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.ellipse(CONFIG.trackCenterX, CONFIG.trackCenterY, (CONFIG.outerRX + CONFIG.innerRX) / 2, (CONFIG.outerRY + CONFIG.innerRY) / 2, 0, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
 
+    // 6. Linha de Partida/Chegada Premium
     const finishX = CONFIG.trackCenterX + CONFIG.innerRX;
     const finishWidth = CONFIG.outerRX - CONFIG.innerRX;
-    const finishY = CONFIG.trackCenterY - 10;
+    const finishY = CONFIG.trackCenterY - 15;
 
+    // Background branco da linha
     ctx.fillStyle = '#fff';
-    ctx.fillRect(finishX, finishY, finishWidth, 20);
-    const step = 14;
-    for (let i = 0; i < finishWidth / step; i++) {
+    ctx.fillRect(finishX, finishY, finishWidth, 30);
+
+    // Quadriculado
+    const qSize = 15;
+    for (let i = 0; i < finishWidth / qSize; i++) {
         for (let j = 0; j < 2; j++) {
             ctx.fillStyle = (i + j) % 2 === 0 ? '#000' : '#fff';
-            ctx.fillRect(finishX + i * step, finishY + j * 10, step, 10);
+            ctx.fillRect(finishX + i * qSize, finishY + j * qSize, qSize, qSize);
         }
     }
+
+    // Borda da linha
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(finishX, finishY, finishWidth, 30);
 }
 
 function updatePosicionamento() {
