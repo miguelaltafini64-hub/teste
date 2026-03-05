@@ -90,32 +90,41 @@ class Car {
     }
 
     handleAI() {
-        // IA segue um caminho elíptico no centro da pista
+        // Obter ângulo atual relativo ao centro da pista
         const dx = this.x - CONFIG.trackCenterX;
         const dy = this.y - CONFIG.trackCenterY;
         const currentAngle = Math.atan2(dy, dx);
 
-        // Avançar o ângulo suavemente no sentido horário
-        // Reduzimos o passo para a IA não "voar"
-        const nextAngle = currentAngle + 0.04;
+        // Alvo: um ponto na elipse significativamente à frente (sentido horário)
+        const targetAngle = currentAngle + 0.6;
+
         const rx = (CONFIG.outerRX + CONFIG.innerRX) / 2 + this.aiOffset;
-        const ry = (CONFIG.outerRY + CONFIG.innerRY) / 2 + this.aiOffset * 0.7;
+        const ry = (CONFIG.outerRY + CONFIG.innerRY) / 2 + this.aiOffset * 0.6;
 
-        const targetX = CONFIG.trackCenterX + Math.cos(nextAngle) * rx;
-        const targetY = CONFIG.trackCenterY + Math.sin(nextAngle) * ry;
+        const targetX = CONFIG.trackCenterX + Math.cos(targetAngle) * rx;
+        const targetY = CONFIG.trackCenterY + Math.sin(targetAngle) * ry;
 
+        // Direção necessária para atingir o alvo
         const angleToTarget = Math.atan2(targetY - this.y, targetX - this.x);
 
-        // Interpolação de ângulo
+        // Diferença de ângulo curta (menor que PI)
         let diff = angleToTarget - this.angle;
         while (diff < -Math.PI) diff += Math.PI * 2;
         while (diff > Math.PI) diff -= Math.PI * 2;
 
-        this.angle += diff * 0.12;
-        this.speed += CONFIG.acceleration * this.aiSpeedFac * 0.75;
+        // LIMITAR A VELOCIDADE DE CURVA: Impede que o carro gire em círculos frenéticos
+        const maxAISteer = CONFIG.turnSpeed * 0.8;
+        if (diff > maxAISteer) diff = maxAISteer;
+        if (diff < -maxAISteer) diff = -maxAISteer;
 
-        if (this.speed > CONFIG.maxSpeed * 0.9 * this.aiSpeedFac) {
-            this.speed = CONFIG.maxSpeed * 0.9 * this.aiSpeedFac;
+        this.angle += diff;
+
+        // Aceleração suave para manter controle
+        const targetSpeed = CONFIG.maxSpeed * 0.85 * this.aiSpeedFac;
+        if (this.speed < targetSpeed) {
+            this.speed += CONFIG.acceleration * 0.6;
+        } else {
+            this.speed *= 0.99;
         }
     }
 
@@ -123,17 +132,13 @@ class Car {
         const dx = this.x - CONFIG.trackCenterX;
         const dy = this.y - CONFIG.trackCenterY;
 
-        // Distância normalizada em relação à elipse (x²/rx² + y²/ry² = 1)
         const dOuter = (dx * dx) / (CONFIG.outerRX * CONFIG.outerRX) + (dy * dy) / (CONFIG.outerRY * CONFIG.outerRY);
         const dInner = (dx * dx) / (CONFIG.innerRX * CONFIG.innerRX) + (dy * dy) / (CONFIG.innerRY * CONFIG.innerRY);
 
-        // Se sair da borda externa ou entrar na interna
         if (dOuter > 1 || dInner < 1) {
-            this.speed *= 0.92; // Grama reduz velocidade
-
-            // "Empurrar" de volta suavemente (opcional, mas evita trancar)
-            if (dOuter > 1.1 || dInner < 0.9) {
-                this.speed *= 0.8;
+            this.speed *= 0.9;
+            if (dOuter > 1.05 || dInner < 0.95) {
+                this.speed *= 0.85;
             }
         }
     }
@@ -142,14 +147,11 @@ class Car {
         const dx = this.x - CONFIG.trackCenterX;
         const dy = this.y - CONFIG.trackCenterY;
 
-        // Checkpoint 1: Lado esquerdo (para garantir que deram a volta)
-        if (dx < -250 && Math.abs(dy) < 150) {
+        if (dx < -200) {
             this.checkpointPassed = true;
         }
 
-        // Linha de Chegada: Lado Direito (x > 220)
-        // Detectar passagem pela linha vertical em x ~ 290 do centro (total x ~ 690)
-        if (this.checkpointPassed && dx > 250 && dy > -50 && dy < 50) {
+        if (this.checkpointPassed && dx > 220 && Math.abs(dy) < 60) {
             this.laps++;
             this.checkpointPassed = false;
 
@@ -169,76 +171,75 @@ class Car {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
 
-        // --- Desenho Estilo Formula 1 ---
+        // --- Desenho F1 - Proporções Reais ---
 
         // Sombra
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.fillRect(-this.width / 2 + 3, -this.height / 2 + 3, this.width, this.height);
 
-        // Pneus (4)
+        // Rodas
         ctx.fillStyle = '#111';
-        // Traseiros
-        ctx.fillRect(-this.width / 2 + 5, -this.height / 2 - 2, 8, 6);
-        ctx.fillRect(-this.width / 2 + 5, this.height / 2 - 4, 8, 6);
-        // Dianteiros
-        ctx.fillRect(this.width / 2 - 12, -this.height / 2 - 1, 6, 5);
-        ctx.fillRect(this.width / 2 - 12, this.height / 2 - 4, 6, 5);
+        // Traseiras
+        ctx.fillRect(-this.width / 2 + 4, -this.height / 2 - 3, 10, 7);
+        ctx.fillRect(-this.width / 2 + 4, this.height / 2 - 4, 10, 7);
+        // Dianteiras
+        ctx.fillRect(this.width / 2 - 14, -this.height / 2 - 1, 7, 5);
+        ctx.fillRect(this.width / 2 - 14, this.height / 2 - 4, 7, 5);
 
-        // Corpo Principal (Chassi)
+        // Corpo
         ctx.fillStyle = this.color;
         ctx.beginPath();
-        // Nariz pontudo
         ctx.moveTo(this.width / 2, 0);
-        ctx.lineTo(this.width / 2 - 10, -5);
-        ctx.lineTo(-this.width / 2 + 5, -8);
+        ctx.lineTo(this.width / 2 - 5, -4);
+        ctx.lineTo(0, -7);
         ctx.lineTo(-this.width / 2, -8);
         ctx.lineTo(-this.width / 2, 8);
-        ctx.lineTo(-this.width / 2 + 5, 8);
-        ctx.lineTo(this.width / 2 - 10, 5);
+        ctx.lineTo(0, 7);
+        ctx.lineTo(this.width / 2 - 5, 4);
         ctx.closePath();
         ctx.fill();
 
         // Asa Dianteira
-        ctx.fillStyle = '#222';
-        ctx.fillRect(this.width / 2 - 5, -this.height / 2 - 1, 3, this.height + 2);
+        ctx.fillStyle = '#000';
+        ctx.fillRect(this.width / 2 - 4, -this.height / 2 - 2, 4, this.height + 4);
 
         // Asa Traseira
-        ctx.fillStyle = '#222';
-        ctx.fillRect(-this.width / 2, -this.height / 2 - 2, 4, this.height + 4);
+        ctx.fillRect(-this.width / 2 - 2, -this.height / 2 - 3, 6, this.height + 6);
 
-        // Cockpit (Capacete do Piloto)
+        // Cockpit
         ctx.fillStyle = '#000';
         ctx.beginPath();
         ctx.arc(-2, 0, 4, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#555'; // Visor
-        ctx.fillRect(0, -2, 2, 4);
 
-        // Detalhes de brilho
-        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
+        ctx.fillStyle = '#ff0000';
+        ctx.fillRect(-6, -1, 4, 2);
 
         ctx.restore();
     }
 }
 
 function initGame() {
-    // Reposicionando carros na largada (lado direito da pista)
-    // No asfalto entre innerRX(220) e outerRX(360), centrado em ~290
     const startX = CONFIG.trackCenterX + 290;
     cars = [
-        new Car(startX, 300, '#ff3e3e', true),   // Player (Red)
-        new Car(startX, 340, '#3e86ff', false),  // NPC 1 (Blue)
-        new Car(startX, 260, '#00ff88', false),  // NPC 2 (Green)
-        new Car(startX, 220, '#ffcc00', false),  // NPC 3 (Yellow)
+        new Car(startX, 300, '#ff3e3e', true),    // Player
+        new Car(startX + 30, 315, '#3e86ff', false), // NPC Azul
+        new Car(startX - 30, 285, '#00ff88', false), // NPC Verde
+        new Car(startX + 40, 270, '#ffcc00', false), // NPC Amarelo
     ];
-    // Ajustar o ângulo inicial para apontar para "baixo" no sentido horário
-    cars.forEach(c => c.angle = Math.PI / 2);
+
+    cars.forEach(c => {
+        c.angle = Math.PI / 2;
+        c.speed = 0;
+        c.laps = 0;
+        c.checkpointPassed = false;
+        c.finished = false;
+    });
 
     player = cars[0];
     gameState = 'RACING';
     overlay.classList.add('hidden');
+    lapDisplay.innerText = `Volta: 0 / ${CONFIG.totalLaps}`;
 }
 
 function endGame(win) {
