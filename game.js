@@ -135,9 +135,7 @@ class Car {
         const dOuter = (dx * dx) / (CONFIG.outerRX * CONFIG.outerRX) + (dy * dy) / (CONFIG.outerRY * CONFIG.outerRY);
         const dInner = (dx * dx) / (CONFIG.innerRX * CONFIG.innerRX) + (dy * dy) / (CONFIG.innerRY * CONFIG.innerRY);
 
-        const isNearPit = dx > 300 && dx < 480 && dy > -150 && dy < 150;
-
-        if (!isNearPit && (dOuter > 1 || dInner < 1)) {
+        if (dOuter > 1 || dInner < 1) {
             this.speed *= 0.85;
             if (dOuter > 1.05 || dInner < 0.95) {
                 this.speed *= 0.8;
@@ -213,59 +211,110 @@ class Car {
     }
 }
 
-function drawCrowd(x, y, w, h) {
+function drawCrowd(x, y, w, h, vertical = false) {
     ctx.fillStyle = '#444';
     ctx.fillRect(x, y, w, h);
     ctx.strokeStyle = '#666';
     ctx.lineWidth = 2;
     ctx.strokeRect(x, y, w, h);
 
-    const cols = Math.floor(w / 10);
-    const rows = Math.floor(h / 12);
+    const stepX = vertical ? 12 : 10;
+    const stepY = vertical ? 10 : 12;
+    const cols = Math.floor(w / stepX);
+    const rows = Math.floor(h / stepY);
+
     for (let i = 0; i < cols; i++) {
         for (let j = 0; j < rows; j++) {
-            const moveY = Math.sin(Date.now() / 200 + i) * 2;
+            const move = Math.sin(Date.now() / 200 + i + j) * 2;
             const colors = ['#f00', '#0f0', '#0af', '#ff0', '#fff'];
             ctx.fillStyle = colors[(i + j) % colors.length];
             ctx.beginPath();
-            ctx.arc(x + 5 + i * 10, y + 6 + j * 12 + moveY, 3, 0, Math.PI * 2);
+            if (vertical) {
+                ctx.arc(x + 6 + i * 12 + move, y + 5 + j * 10, 3, 0, Math.PI * 2);
+            } else {
+                ctx.arc(x + 5 + i * 10, y + 6 + j * 12 + move, 3, 0, Math.PI * 2);
+            }
             ctx.fill();
         }
     }
+}
+
+function drawFlag(x, y, country) {
+    ctx.save();
+    ctx.translate(x, y);
+
+    // Mastro
+    ctx.fillStyle = '#888';
+    ctx.fillRect(0, 0, 4, 40);
+
+    // Bandeira (24x16)
+    const fW = 24;
+    const fH = 16;
+    const fX = 4;
+    const fY = 0;
+
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+
+    switch (country) {
+        case 'BRA':
+            ctx.fillStyle = '#009b3a';
+            ctx.fillRect(fX, fY, fW, fH);
+            ctx.fillStyle = '#fedf00';
+            ctx.beginPath();
+            ctx.moveTo(fX + fW / 2, fY + 2);
+            ctx.lineTo(fX + fW - 2, fY + fH / 2);
+            ctx.lineTo(fX + fW / 2, fY + fH - 2);
+            ctx.lineTo(fX + 2, fY + fH / 2);
+            ctx.fill();
+            ctx.fillStyle = '#002776';
+            ctx.beginPath();
+            ctx.arc(fX + fW / 2, fY + fH / 2, 3, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+        case 'FRA':
+            ctx.fillStyle = '#002395'; ctx.fillRect(fX, fY, fW / 3, fH);
+            ctx.fillStyle = '#fff'; ctx.fillRect(fX + fW / 3, fY, fW / 3, fH);
+            ctx.fillStyle = '#ed2939'; ctx.fillRect(fX + 2 * fW / 3, fY, fW / 3, fH);
+            break;
+        case 'ITA':
+            ctx.fillStyle = '#009246'; ctx.fillRect(fX, fY, fW / 3, fH);
+            ctx.fillStyle = '#fff'; ctx.fillRect(fX + fW / 3, fY, fW / 3, fH);
+            ctx.fillStyle = '#ce2b37'; ctx.fillRect(fX + 2 * fW / 3, fY, fW / 3, fH);
+            break;
+        case 'GER':
+            ctx.fillStyle = '#000'; ctx.fillRect(fX, fY, fW, fH / 3);
+            ctx.fillStyle = '#d00'; ctx.fillRect(fX, fY + fH / 3, fW, fH / 3);
+            ctx.fillStyle = '#ffce00'; ctx.fillRect(fX, fY + 2 * fH / 3, fW, fH / 3);
+            break;
+        case 'JPN':
+            ctx.fillStyle = '#fff'; ctx.fillRect(fX, fY, fW, fH);
+            ctx.fillStyle = '#bc002d';
+            ctx.beginPath();
+            ctx.arc(fX + fW / 2, fY + fH / 2, 4, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+    }
+    ctx.strokeRect(fX, fY, fW, fH);
+    ctx.restore();
 }
 
 function drawTrack() {
     ctx.fillStyle = '#1e3d1a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    drawCrowd(200, 20, 600, 40);
-    drawCrowd(200, 740, 600, 40);
+    // --- Arquibancadas ao Redor ---
+    drawCrowd(200, 10, 600, 40); // Norte
+    drawCrowd(200, 750, 600, 40); // Sul
+    drawCrowd(10, 200, 40, 400, true); // Oeste
+    drawCrowd(950, 200, 40, 400, true); // Leste
 
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 15;
-    ctx.beginPath();
-    ctx.ellipse(CONFIG.trackCenterX, CONFIG.trackCenterY, CONFIG.outerRX + 5, CONFIG.outerRY + 5, 0, 0, Math.PI * 2);
-    ctx.stroke();
-
-    const grd = ctx.createRadialGradient(CONFIG.trackCenterX, CONFIG.trackCenterY, 200, CONFIG.trackCenterX, CONFIG.trackCenterY, 500);
-    grd.addColorStop(0, "#333");
-    grd.addColorStop(1, "#222");
-    ctx.fillStyle = grd;
-    ctx.beginPath();
-    ctx.ellipse(CONFIG.trackCenterX, CONFIG.trackCenterY, CONFIG.outerRX, CONFIG.outerRY, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#444';
-    ctx.fillRect(CONFIG.trackCenterX + 350, CONFIG.trackCenterY - 150, 100, 300);
-    ctx.strokeStyle = '#fff';
-    ctx.setLineDash([10, 10]);
-    ctx.strokeRect(CONFIG.trackCenterX + 350, CONFIG.trackCenterY - 150, 100, 300);
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 14px Outfit';
-    ctx.textAlign = 'center';
-    ctx.fillText("PIT LANE", CONFIG.trackCenterX + 400, CONFIG.trackCenterY);
+    // Bandeiras
+    drawFlag(100, 100, 'BRA');
+    drawFlag(900, 100, 'FRA');
+    drawFlag(100, 700, 'ITA');
+    drawFlag(900, 700, 'GER');
+    drawFlag(500, 50, 'JPN');
 
     ctx.fillStyle = '#1e3d1a';
     ctx.beginPath();
