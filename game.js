@@ -20,22 +20,23 @@ const startBtn = document.getElementById('start-btn');
 // Configurações do Jogo
 const CONFIG = {
     totalLaps: 5,
-    trackCenterX: 400,
-    trackCenterY: 300,
-    outerRX: 360,
-    outerRY: 260,
-    innerRX: 220,
-    innerRY: 120,
+    trackCenterX: 500, // Centralizado no novo canvas de 1000
+    trackCenterY: 400, // Centralizado no novo canvas de 800
+    outerRX: 450,
+    outerRY: 340,
+    innerRX: 280,
+    innerRY: 180,
     friction: 0.98,
     turnSpeed: 0.05,
     acceleration: 0.2,
-    maxSpeed: 6,
+    maxSpeed: 6.5,
 };
 
 let gameState = 'START'; // START, RACING, FINISH
 let cars = [];
 let player = null;
 let keys = {};
+let crowdAlpha = 0; // Para animação da torcida
 
 // Gerenciamento de Inputs
 window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
@@ -54,7 +55,7 @@ class Car {
         this.laps = 0;
         this.checkpointPassed = false;
         this.targetAngle = 0; // Para IA
-        this.aiOffset = Math.random() * 60 - 30; // Variância no traçado da IA
+        this.aiOffset = Math.random() * 80 - 40; // Variância no traçado da IA
         this.aiSpeedFac = 0.85 + Math.random() * 0.25; // Variância na velocidade da IA
         this.finished = false;
     }
@@ -82,8 +83,8 @@ class Car {
         if (keys['s']) this.speed -= CONFIG.acceleration * 0.5;
 
         // Conforme GDD do usuário: A = Direita, D = Esquerda
-        if (keys['a']) this.angle += CONFIG.turnSpeed * (this.speed > 0.5 ? 1 : this.speed / 0.5);
-        if (keys['d']) this.angle -= CONFIG.turnSpeed * (this.speed > 0.5 ? 1 : this.speed / 0.5);
+        if (keys['a']) this.angle += CONFIG.turnSpeed * (this.speed > 0.5 ? 1 : Math.max(0, this.speed / 0.5));
+        if (keys['d']) this.angle -= CONFIG.turnSpeed * (this.speed > 0.5 ? 1 : Math.max(0, this.speed / 0.5));
 
         if (this.speed > CONFIG.maxSpeed) this.speed = CONFIG.maxSpeed;
         if (this.speed < -CONFIG.maxSpeed / 2) this.speed = -CONFIG.maxSpeed / 2;
@@ -96,7 +97,7 @@ class Car {
         const currentAngle = Math.atan2(dy, dx);
 
         // Alvo: um ponto na elipse significativamente à frente (sentido horário)
-        const targetAngle = currentAngle + 0.6;
+        const targetAngle = currentAngle + 0.5;
 
         const rx = (CONFIG.outerRX + CONFIG.innerRX) / 2 + this.aiOffset;
         const ry = (CONFIG.outerRY + CONFIG.innerRY) / 2 + this.aiOffset * 0.6;
@@ -113,16 +114,16 @@ class Car {
         while (diff > Math.PI) diff -= Math.PI * 2;
 
         // LIMITAR A VELOCIDADE DE CURVA: Impede que o carro gire em círculos frenéticos
-        const maxAISteer = CONFIG.turnSpeed * 0.8;
+        const maxAISteer = CONFIG.turnSpeed * 0.85;
         if (diff > maxAISteer) diff = maxAISteer;
         if (diff < -maxAISteer) diff = -maxAISteer;
 
         this.angle += diff;
 
         // Aceleração suave para manter controle
-        const targetSpeed = CONFIG.maxSpeed * 0.85 * this.aiSpeedFac;
+        const targetSpeed = CONFIG.maxSpeed * 0.88 * this.aiSpeedFac;
         if (this.speed < targetSpeed) {
-            this.speed += CONFIG.acceleration * 0.6;
+            this.speed += CONFIG.acceleration * 0.65;
         } else {
             this.speed *= 0.99;
         }
@@ -135,7 +136,10 @@ class Car {
         const dOuter = (dx * dx) / (CONFIG.outerRX * CONFIG.outerRX) + (dy * dy) / (CONFIG.outerRY * CONFIG.outerRY);
         const dInner = (dx * dx) / (CONFIG.innerRX * CONFIG.innerRX) + (dy * dy) / (CONFIG.innerRY * CONFIG.innerRY);
 
-        if (dOuter > 1 || dInner < 1) {
+        // Área do Pit Stop (Lado direito, fora da elipse principal mas dentro de uma zona específica)
+        const isNearPit = dx > 300 && dx < 480 && dy > -150 && dy < 150;
+
+        if (!isNearPit && (dOuter > 1 || dInner < 1)) {
             this.speed *= 0.9;
             if (dOuter > 1.05 || dInner < 0.95) {
                 this.speed *= 0.85;
@@ -147,11 +151,11 @@ class Car {
         const dx = this.x - CONFIG.trackCenterX;
         const dy = this.y - CONFIG.trackCenterY;
 
-        if (dx < -200) {
+        if (dx < -300) {
             this.checkpointPassed = true;
         }
 
-        if (this.checkpointPassed && dx > 220 && Math.abs(dy) < 60) {
+        if (this.checkpointPassed && dx > 300 && Math.abs(dy) < 80) {
             this.laps++;
             this.checkpointPassed = false;
 
@@ -219,13 +223,37 @@ class Car {
     }
 }
 
+function drawCrowd(x, y, w, h) {
+    // Bancada
+    ctx.fillStyle = '#444';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, w, h);
+
+    // Torcedores (Pontinhos coloridos)
+    const cols = Math.floor(w / 10);
+    const rows = Math.floor(h / 12);
+    for (let i = 0; i < cols; i++) {
+        for (let j = 0; j < rows; j++) {
+            // Pequena variação para dar sensação de movimento
+            const moveY = Math.sin(Date.now() / 200 + i) * 2;
+            const colors = ['#f00', '#0f0', '#0af', '#ff0', '#fff'];
+            ctx.fillStyle = colors[(i + j) % colors.length];
+            ctx.beginPath();
+            ctx.arc(x + 5 + i * 10, y + 6 + j * 12 + moveY, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+}
+
 function initGame() {
-    const startX = CONFIG.trackCenterX + 290;
+    const startX = CONFIG.trackCenterX + 350;
     cars = [
-        new Car(startX, 300, '#ff3e3e', true),    // Player
-        new Car(startX + 30, 315, '#3e86ff', false), // NPC Azul
-        new Car(startX - 30, 285, '#00ff88', false), // NPC Verde
-        new Car(startX + 40, 270, '#ffcc00', false), // NPC Amarelo
+        new Car(startX, CONFIG.trackCenterY, '#ff3e3e', true),    // Player
+        new Car(startX + 40, CONFIG.trackCenterY + 40, '#3e86ff', false), // NPC Azul
+        new Car(startX - 40, CONFIG.trackCenterY - 40, '#00ff88', false), // NPC Verde
+        new Car(startX + 60, CONFIG.trackCenterY - 80, '#ffcc00', false), // NPC Amarelo
     ];
 
     cars.forEach(c => {
@@ -255,6 +283,10 @@ function drawTrack() {
     ctx.fillStyle = '#1e3d1a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // --- Torcida (Arquibancadas) ---
+    drawCrowd(200, 20, 600, 40); // Topo
+    drawCrowd(200, 740, 600, 40); // Baixo
+
     // Borda Externa (Muro/Zebra)
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 15;
@@ -263,13 +295,27 @@ function drawTrack() {
     ctx.stroke();
 
     // Pista (Asfalto Profissional)
-    const grd = ctx.createRadialGradient(CONFIG.trackCenterX, CONFIG.trackCenterY, 150, CONFIG.trackCenterX, CONFIG.trackCenterY, 400);
+    const grd = ctx.createRadialGradient(CONFIG.trackCenterX, CONFIG.trackCenterY, 200, CONFIG.trackCenterX, CONFIG.trackCenterY, 500);
     grd.addColorStop(0, "#333");
     grd.addColorStop(1, "#222");
     ctx.fillStyle = grd;
     ctx.beginPath();
     ctx.ellipse(CONFIG.trackCenterX, CONFIG.trackCenterY, CONFIG.outerRX, CONFIG.outerRY, 0, 0, Math.PI * 2);
     ctx.fill();
+
+    // --- Pit Stop Area ---
+    ctx.fillStyle = '#444';
+    ctx.fillRect(CONFIG.trackCenterX + 350, CONFIG.trackCenterY - 150, 100, 300);
+    ctx.strokeStyle = '#fff';
+    ctx.setLineDash([10, 10]);
+    ctx.strokeRect(CONFIG.trackCenterX + 350, CONFIG.trackCenterY - 150, 100, 300);
+    ctx.setLineDash([]);
+
+    // Texto Pit Stop
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 14px Outfit';
+    ctx.textAlign = 'center';
+    ctx.fillText("PIT LANE", CONFIG.trackCenterX + 400, CONFIG.trackCenterY);
 
     // Borda Interna (Grama Central)
     ctx.fillStyle = '#1e3d1a';
@@ -281,7 +327,7 @@ function drawTrack() {
     ctx.stroke();
 
     // Linhas da Pista
-    ctx.setLineDash([15, 25]);
+    ctx.setLineDash([20, 30]);
     ctx.strokeStyle = 'rgba(255,255,255,0.15)';
     ctx.lineWidth = 2;
     ctx.beginPath();
